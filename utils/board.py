@@ -12,10 +12,10 @@ class BaghChal:
     def __init__(self, sheep_agent_cls: Type[Sheep], wolves_agent_cls: Type[Wolves]):
         self.board = self._create_board()
 
-        # TODO: warning if agents are not proper subclasses
-        self.sheep = sheep_agent_cls(self.board)
-        self.wolves = wolves_agent_cls(self.board)
+        self.sheep = sheep_agent_cls()
+        self.wolves = wolves_agent_cls()
 
+        self.done = False
 
     @staticmethod
     def _create_board():
@@ -24,30 +24,23 @@ class BaghChal:
         return board
 
     def play_match(self):
-        s_count = w_count = 0
-        while True:
-            self.sheep.set_state(
-                self.sheep.pick_state(
-                    self.sheep.get_states()
-                )
-            )
-            s_count += 1
-            w_states = self.wolves.get_states()
-            if not w_states:
-                print("Wolves don't have options to make they turn. Sheep wins!")
-                break
-            self.wolves.set_state(
-                self.wolves.pick_state(w_states)
-            )
-            if self.wolves.captured_sheep == 5:
-                print(f"Wolves ate {self.wolves.captured_sheep} sheep already. Wolves wins!")
-                break
-            w_count += 1
+        _round = 1
+        while not self.done:
 
-        print(f"Sheep turns: {s_count}, Wolves turns: {w_count}")
+            for agent in (self.wolves, self.sheep):
+                new_state, self.done, reward = agent.make_turn(self.board)
+                if self.done:
+                    print(f"{agent.__class__.__name__} lose!")
+                    break
+
+                self.board = new_state
+            _round += 1
+
+        print(f"Num of turns: {_round}")
         print(f"Captured sheep: {self.wolves.captured_sheep}")
         print('----- final board state -----')
         print(self.board)
+        print((self.board>0).sum())
 
 
 if __name__ == "__main__":
