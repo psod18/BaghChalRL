@@ -1,11 +1,11 @@
 from abc import abstractmethod
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 import numpy as np
 
 
 class Player:
-    # self.__bases__[0].__name__ --> 'Player'
+    # self.__class__.__bases__.__name__ --> 'Player'
 
     @abstractmethod
     def get_states(self, current_state: np.array) -> List[np.array]:
@@ -62,13 +62,13 @@ class Sheep(Player):
         """picks randomly next state (turn)"""
         return states[np.random.choice(np.arange(len(states)))]
 
-    def make_turn(self, current_state: np.array) -> Tuple[np.array, bool, int]:
+    def make_turn(self, current_state: np.array) -> Union[np.array, None]:
         if (current_state > 0).sum() + self.in_reserve < 16:
             # Sheep agent lose
-            return None, True, -1
+            return None
         _states = self.get_states(current_state)
         new_state = self.pick_state(_states)
-        return new_state, False, 0
+        return new_state
 
     @staticmethod
     def _extract_pieces_position(state: np.array) -> np.array:
@@ -142,24 +142,19 @@ class Wolves(Player):
         """picks randomly next state (turn)"""
         return states[np.random.choice(np.arange(len(states)))]
 
-    def make_turn(self, current_state: np.array) -> Tuple[np.array, bool, int]:
-        if (current_state < 0).sum() == 0:
-            # First move is to put all wolves to the board's corners:
-            new_state = np.copy(current_state)
-            new_state[[0, 0, 4, 4], [0, 4, 0, 4]] = -1
-            return new_state, False, 0
+    def make_turn(self, current_state: np.array) -> Union[None, np.array]:
 
         _states = self.get_states(current_state)
         if not _states:
             # Wolves agent lose
-            return None, True, -1
+            return None
         new_state = self.pick_state(_states)
 
         if (current_state - new_state).sum() > 0:
             # one sheep was captured at this turn
             self.captured_sheep += 1
 
-        return new_state, False, 0
+        return new_state
 
     @staticmethod
     def _extract_pieces_position(state: np.array) -> np.array:
