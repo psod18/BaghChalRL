@@ -1,3 +1,4 @@
+import os
 import random
 from typing import List, Union
 
@@ -28,24 +29,40 @@ class QSheep(Sheep):
         return action_idx
 
     def make_turn(self, current_state: np.array) -> Union[np.array, None]:
-        state_hash = hash(current_state.tobytes())
+
         if (current_state > 0).sum() + self.in_reserve < 16:
             # Sheep agent lose
             return None
+
+        state_hash = hash(current_state.tobytes()) + self.in_reserve
+
         _states = self.get_states(current_state)
+
+        if len(_states) == 0:
+            # workaround for case when all sheep are blocked by wolves
+            return []
+
         if state_hash not in self.q_table:
             self.q_table[state_hash] = np.zeros(len(_states), dtype=np.float64)
         q_values = self.q_table[state_hash]
 
         next_state_idx = self.pick_state(q_values)
-        new_state = _states[next_state_idx]
-
+        try:
+            new_state = _states[next_state_idx]
+        except IndexError as e:
+            print(current_state)
+            print(self.in_reserve)
+            for s in _states: print(s)
+            print(len(_states))
+            print(q_values, len(q_values))
+            raise e
         self.trajectory.append((state_hash, next_state_idx))
 
         return new_state
 
     def update_q_from_trajectory(self, reward):
 
+        # TODO: revert for speed up the training (and the same for sheep agent!)
         for j in range(len(self.trajectory)):
             q_s, idx = self.trajectory[j]
             try:
@@ -55,6 +72,12 @@ class QSheep(Sheep):
                 self.q_table[q_s][idx] += self.alpha*(self.gamma * reward - self.q_table[q_s][idx])
 
         self.trajectory = []
+
+    def save(self, path, filename="sheep"):
+        np.save(os.path.join(path, f"{filename}.npy"), self.q_table)
+
+    def load(self, filepath):
+        self.q_table = np.load(filepath)
 
 
 class QWolves(Wolves):
@@ -107,3 +130,9 @@ class QWolves(Wolves):
                 self.q_table[q_s][idx] += self.alpha*(self.gamma * reward - self.q_table[q_s][idx])
 
         self.trajectory = []
+
+    def save(self, path, filename="wolves"):
+        np.save(os.path.join(path, f"{filename}.npy"), self.q_table)
+
+    def load(self, filepath):
+        self.q_table = np.load(filepath)
