@@ -2,7 +2,7 @@ from typing import Type
 
 import numpy as np
 
-from agents import (
+from utils.agents import (
     Sheep,
     Wolves,
 )
@@ -10,47 +10,57 @@ from agents import (
 
 class BaghChal:
     def __init__(self, sheep_agent_cls: Type[Sheep], wolves_agent_cls: Type[Wolves]):
-        self.board = self._create_board()
+        self._board = self._create_board()
 
-        # TODO: warning if agents are not proper subclasses
-        self.sheep = sheep_agent_cls(self.board)
-        self.wolves = wolves_agent_cls(self.board)
+        self.sheep = sheep_agent_cls()
+        self.wolves = wolves_agent_cls()
 
+        self.done = False
+
+    def get_state(self):
+        return self._board
 
     @staticmethod
     def _create_board():
         """Initiate game board and place wolves pieces to each corner"""
         board = np.zeros((5, 5), dtype=np.int32)
+        # Put all wolves to the board's corners
+        board[[0, 0, 4, 4], [0, 4, 0, 4]] = -1
         return board
 
-    def play_match(self):
-        s_count = w_count = 0
-        while True:
-            self.sheep.set_state(
-                self.sheep.pick_state(
-                    self.sheep.get_states()
-                )
-            )
-            s_count += 1
-            w_states = self.wolves.get_states()
-            if not w_states:
-                print("Wolves don't have options to make they turn. Sheep wins!")
-                break
-            self.wolves.set_state(
-                self.wolves.pick_state(w_states)
-            )
-            if self.wolves.captured_sheep == 5:
-                print(f"Wolves ate {self.wolves.captured_sheep} sheep already. Wolves wins!")
-                break
-            w_count += 1
+    def step(self, state: np.array):
+        """Bring system to a new state"""
+        self._board[:] = state[:]
 
-        print(f"Sheep turns: {s_count}, Wolves turns: {w_count}")
-        print(f"Captured sheep: {self.wolves.captured_sheep}")
-        print('----- final board state -----')
-        print(self.board)
+    def restart(self):
+        self._board = self._create_board()
+        self.sheep.in_reserve = 20
+        self.wolves.captured_sheep = 0
 
 
 if __name__ == "__main__":
-    t = BaghChal(Sheep, Wolves)
-    t.play_match()
+    env = BaghChal(Sheep, Wolves)
+
+    _round = 1
+    while True:
+
+        # Sheep turn:
+        new_state = env.sheep.make_turn(env.get_state())
+        if new_state is None:
+            print("Wolves won!")
+            break
+        env.step(new_state)
+
+        # Wolves turn
+        new_state = env.wolves.make_turn(env.get_state())
+        if new_state is None:
+            print("Sheep won!")
+            break
+        env.step(new_state)
+        _round += 1
+
+    print(f"Num of turns: {_round}")
+    print(f"Captured sheep: {env.wolves.captured_sheep}")
+    print('----- final board state -----')
+    print(env.get_state())
 
